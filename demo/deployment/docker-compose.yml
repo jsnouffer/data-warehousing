@@ -1,0 +1,127 @@
+version: '2'
+
+services:
+  spark:
+    image: bitnami/spark:3
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+      - SPARK_MASTER_WEBUI_PORT=8083
+    ports:
+      - '8083:8083'
+    restart: always
+  spark-worker-1:
+    image: bitnami/spark:3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    restart: always
+  spark-worker-2:
+    image: bitnami/spark:3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    restart: always
+  cassandra:
+    image: bitnami/cassandra:4.0
+    ports:
+      - '7000:7000'
+      - '9042:9042'
+    volumes:
+      - 'demo_cassandra_data:/bitnami'
+    environment:
+      - CASSANDRA_SEEDS=cassandra
+      - CASSANDRA_PASSWORD_SEEDER=yes
+      - CASSANDRA_PASSWORD=cassandra
+    restart: always
+  sqlpad:
+    image: sqlpad/sqlpad:latest
+    ports:
+      - '3000:3000'
+    environment:
+      - SQLPAD_ADMIN=admin
+      - SQLPAD_ADMIN_PASSWORD=admin
+      - SQLPAD_CONNECTIONS__cassandra__name=cassandra
+      - SQLPAD_CONNECTIONS__cassandra__driver=cassandra
+      - SQLPAD_CONNECTIONS__cassandra__contactPoints=cassandra:9042
+      - SQLPAD_CONNECTIONS__cassandra__username=cassandra
+      - SQLPAD_CONNECTIONS__cassandra__password=cassandra
+    depends_on:
+      - cassandra
+    restart: always
+  zookeeper:
+    image: bitnami/zookeeper:3.7
+    ports:
+      - "2181:2181"
+    volumes:
+      - "demo_zookeeper_data:/bitnami"
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    restart: always
+  kafka:
+    image: bitnami/kafka:2
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    hostname: kafka
+    volumes:
+      - "demo_kafka_data:/bitnami"
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://kafka:29092
+      - KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+    depends_on:
+      - zookeeper
+    restart: always
+  akhq:
+    image: tchiotludo/akhq:latest
+    ports:
+      - "8081:8080"
+    environment:
+      - MICRONAUT_CONFIG_FILES=/app/config/application.yml
+    volumes:
+      - type: bind
+        source: ./akhq-application.yml
+        target: /app/config/application.yml
+    depends_on:
+      - kafka
+    restart: always
+  jupyter-pyspark:
+    image: jupyter/pyspark-notebook:latest
+    ports:
+      - "9999:8888"
+    volumes:
+      - "demo_jupyter_data:/home/jovyan"
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - NOTEBOOKAPP_TOKEN=''
+    depends_on:
+      - spark
+    restart: always
+volumes:
+  demo_cassandra_data:
+    driver: local
+  demo_zookeeper_data:
+    driver: local
+  demo_kafka_data:
+    driver: local
+  demo_jupyter_data:
+    driver: local
