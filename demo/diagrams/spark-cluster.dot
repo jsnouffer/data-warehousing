@@ -1,0 +1,17 @@
+digraph {
+  graph [bgcolor="#ffffff" pad=0.5 ratio="fill"]
+  "spark" [shape="component"]
+  "spark-share" [shape="folder"]
+  "spark-worker-1" [shape="component"]
+  "spark-worker-2" [shape="component"]
+  "jupyter-pyspark" [shape="component"]
+  "jupyter-notebooks" [shape="folder"]
+  "spark-share" -> "spark" [style="dashed" dir="both"]
+  "spark-worker-1" -> "spark" [style="dotted"]
+  "spark-share" -> "spark-worker-1" [style="dashed" dir="both"]
+  "spark-worker-2" -> "spark" [style="dotted"]
+  "spark-share" -> "spark-worker-2" [style="dashed" dir="both"]
+  "jupyter-pyspark" -> "spark" [style="dotted"]
+  "jupyter-notebooks" -> "jupyter-pyspark" [style="dashed" dir="both"]
+  "spark-share" -> "jupyter-pyspark" [style="dashed" dir="both"]
+}

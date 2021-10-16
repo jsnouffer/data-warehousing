@@ -10,6 +10,8 @@ services:
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
       - SPARK_MASTER_WEBUI_PORT=8083
+    volumes:
+      - ./mounts/spark-share:/mounts/spark-share
     ports:
       - '8083:8083'
     restart: always
@@ -24,7 +26,11 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+    volumes:
+      - ./mounts/spark-share:/mounts/spark-share
     restart: always
+    depends_on:
+      - spark
   spark-worker-2:
     image: bitnami/spark:3
     environment:
@@ -36,6 +42,10 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+    volumes:
+      - ./mounts/spark-share:/mounts/spark-share
+    depends_on:
+      - spark
     restart: always
   cassandra:
     image: bitnami/cassandra:4.0
@@ -61,8 +71,15 @@ services:
       - SQLPAD_CONNECTIONS__cassandra__contactPoints=cassandra:9042
       - SQLPAD_CONNECTIONS__cassandra__username=cassandra
       - SQLPAD_CONNECTIONS__cassandra__password=cassandra
+      - SQLPAD_CONNECTIONS__mariadb__name=mariadb
+      - SQLPAD_CONNECTIONS__mariadb__driver=mysql
+      - SQLPAD_CONNECTIONS__mariadb__host=mariadb
+      - SQLPAD_CONNECTIONS__mariadb__port=3306
+      - SQLPAD_CONNECTIONS__mariadb__database=data-warehouse
+      - SQLPAD_CONNECTIONS__mariadb__username=root
     depends_on:
       - cassandra
+      - mariadb
     restart: always
   zookeeper:
     image: bitnami/zookeeper:3.7
@@ -85,11 +102,16 @@ services:
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://kafka:29092
-      - KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://localhost:29092
+      - KAFKA_ADVERTISED_LISTENERS=INTERNAL://kafka:9092,EXTERNAL://kafka:29092
       - KAFKA_INTER_BROKER_LISTENER_NAME=INTERNAL
       - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
     depends_on:
       - zookeeper
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--list", "--zookeeper", "zookeeper:2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     restart: always
   akhq:
     image: tchiotludo/akhq:latest
@@ -99,7 +121,7 @@ services:
       - MICRONAUT_CONFIG_FILES=/app/config/application.yml
     volumes:
       - type: bind
-        source: ./akhq-application.yml
+        source: ./mounts/akhq-application.yml
         target: /app/config/application.yml
     depends_on:
       - kafka
@@ -110,13 +132,44 @@ services:
       - "9999:8888"
     volumes:
       - "demo_jupyter_data:/home/jovyan"
+      - ../notebooks:/home/jovyan/notebooks
+      - ./mounts/spark-share:/mounts/spark-share
     environment:
       - JUPYTER_ENABLE_LAB=yes
       - NOTEBOOKAPP_TOKEN=''
     depends_on:
       - spark
     restart: always
+  mariadb:
+    image: bitnami/mariadb:10.3
+    ports:
+      - '3306:3306'
+    volumes:
+      - 'mariadb_data:/bitnami'
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    restart: always
+  phpmyadmin:
+    image: bitnami/phpmyadmin:5
+    ports:
+      - '8080:8080'
+    depends_on:
+      - mariadb
+    restart: always
+  data-simulator:
+    image: data-simulator:latest
+    environment:
+      - kafka.brokers=kafka:29092
+      - mariadb.host=mariadb
+    depends_on:
+      mariadb:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+    restart: always
 volumes:
+  mariadb_data:
+    driver: local
   demo_cassandra_data:
     driver: local
   demo_zookeeper_data:
