@@ -130,6 +130,7 @@ services:
     image: jupyter/pyspark-notebook:latest
     ports:
       - "9999:8888"
+      - "4040:4040"
     volumes:
       - "demo_jupyter_data:/home/jovyan"
       - ../notebooks:/home/jovyan/notebooks
