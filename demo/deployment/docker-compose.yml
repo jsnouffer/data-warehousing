@@ -127,7 +127,7 @@ services:
       - kafka
     restart: always
   jupyter-pyspark:
-    image: jupyter/pyspark-notebook:latest
+    image: jupyter/pyspark-notebook:spark-3.1.2
     ports:
       - "9999:8888"
       - "4040:4040"
